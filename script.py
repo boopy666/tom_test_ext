@@ -1,6 +1,21 @@
 import datetime
 import re
 import gradio as gr
+import os
+import sys
+
+# Find the path to the 'modules' directory relative to the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # Move up to the 'extensions' directory
+base_dir = os.path.dirname(parent_dir)  # Move up to the base 'text-generation-webui' directory
+modules_path = os.path.join(base_dir, 'modules')
+
+if modules_path not in sys.path:
+    sys.path.append(modules_path)
+
+from chat import generate_chat_prompt
+
+
 
 class CharacterStats:
     SHIRT_SIZES = ["Medium", "Large", "X-Large", "XX-Large", "XXX-Large", "XXXX-Large", "XXXXX-Large"]
@@ -76,7 +91,7 @@ def custom_generate_chat_prompt(user_input, state, **kwargs):
                     f"Shirt Size: {character_stats.shirt_size}, Pant Size: {character_stats.pant_size}, " \
                     f"Current Calories: {character_stats.current_calories}, Max Calories: {character_stats.max_calories}, " \
                     f"Mood: {character_stats.mood}, Relationship Status: {character_stats.relationship_status}"
-    result = chat.generate_chat_prompt(user_input, state, **kwargs)
+    result = generate_chat_prompt(user_input, state, **kwargs)
     return f"{stats_context}\n{result}"
 
 def ui():
