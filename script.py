@@ -15,11 +15,9 @@ if modules_path not in sys.path:
 
 from chat import generate_chat_prompt
 
-
-
 class CharacterStats:
     SHIRT_SIZES = ["Medium", "Large", "X-Large", "XX-Large", "XXX-Large", "XXXX-Large", "XXXXX-Large"]
-    MOODS = ["Happy", "Sad", "Excited", "Angry", "Scared"]
+    MOODS = ["Happy", "Sad", "Excited", "Angry", "Scared", "Nervous", "Relaxed", "Curious", "Indifferent", "Surprised"]
     RELATIONSHIPS = ["Acquaintance", "Friend", "Best Friend", "Crush", "Romantic", "Lover"]
 
     def __init__(self):
@@ -52,7 +50,7 @@ class CharacterStats:
         self.current_date += datetime.timedelta(days=1)
         excess_calories = self.current_calories - self.calculate_bmr()
         if excess_calories > 500:
-            self.weight += 1  # Add 1 lb for every excess of 500 calories
+            self.weight += excess_calories % 500  # Add 1 lb for every excess of 500 calories
         self.current_calories = 0
         self.update_clothing_sizes()
 
@@ -76,24 +74,97 @@ def input_modifier(string, state, is_chat=False):
     if is_chat:
         if "==END_DAY==" in string:
             character_stats.end_day()
-            string = re.sub(r"==END_DAY==", "", string)
+            string = re.sub(r"==END_DAY==", "", string).strip()
 
         food_matches = re.findall(r"\{([^}]+):(\d+)\}", string)
-        for _, cal in food_matches:
+        for match in food_matches:
+            _, cal = match
             character_stats.add_calories(int(cal))
-            string = re.sub(r"\{[^}]+:\d+\}", "", string)
+            string = re.sub(re.escape(match), "", string).strip()
 
     return string
 
-def custom_generate_chat_prompt(user_input, state, **kwargs):
-    stats_context = "Use these stats to define your age, weight, BMI, Shirt size, Pant size, Current Calories consumed, mood and your realtionship status with {{user}}: " \
-					f"Age: {character_stats.age}, Weight: {character_stats.weight} lbs, BMI: {character_stats.calculate_bmi()}, " \
-                    f"Shirt Size: {character_stats.shirt_size}, Pant Size: {character_stats.pant_size}, " \
-                    f"Current Calories: {character_stats.current_calories}, Max Calories: {character_stats.max_calories}, " \
-                    f"Mood: {character_stats.mood}, Relationship Status: {character_stats.relationship_status}"
-    result = generate_chat_prompt(user_input, state, **kwargs)
-    return f"{stats_context}\n{result}"
+def chat_input_modifier(text, visible_text, state):
+    is_new_chat = len(state['history']['internal']) == 1
+    end_day_called = "==END_DAY==" in text
+    food_matches = re.findall(r"\{([^}]+):(\d+)\}", text)
+    is_story = "STORY:" in text
 
+    # Process end day command
+    if end_day_called:
+        character_stats.end_day()
+        text = text.replace("==END_DAY==", "").strip()
+
+    # Process added food
+    for food_item, calories in food_matches:
+        character_stats.add_calories(int(calories))
+        text = text.replace(f"{{{food_item}:{calories}}}", "").strip()
+
+    # Create stats context
+    stats_context = (
+        f"[You are {character_stats.age} years old, 5'7 inches tall, and currently weigh {character_stats.weight} lbs, "
+        f"so with that your BMI is {character_stats.calculate_bmi()}. You currently wear a {character_stats.shirt_size} "
+        f"shirt, and have a pant size {character_stats.pant_size} US women's. So far you have consumed "
+        f"{character_stats.current_calories} calories today. You are feeling {character_stats.mood}. As for your "
+        f"relationship with Tom, you two are considered {character_stats.relationship_status}.]"
+    )
+
+    # Initialize reminder messages list and check for keywords
+    reminder_messages = []
+    if "weight" in text or "weigh" in text:
+        reminder_messages.append(f"[Reminder: You currently weigh {character_stats.weight} lbs]")
+    if "pant size" in text:
+        reminder_messages.append(f"[Reminder: Your pant size is {character_stats.pant_size} US women's]")
+    if "shirt size" in text:
+        reminder_messages.append(f"[Reminder: You currently wear a {character_stats.shirt_size} shirt]")
+
+    # Append reminders to the stats context
+    if reminder_messages:
+        stats_context += "\n" + "\n".join(reminder_messages)
+
+    # Modify text based on different conditions
+    if is_story and is_new_chat:
+        modified_text = f"{stats_context}\n{text}"
+        modified_visible_text = f"{stats_context}\n{visible_text}"
+    elif is_story:
+        modified_text = text.replace("STORY: ", "").strip()
+        modified_visible_text = visible_text.replace("STORY: ", "").strip()
+    elif is_new_chat or end_day_called or food_matches:
+        modified_text = f"{stats_context}\n{text}"
+        modified_text = modified_text.replace("==END_DAY==", "").strip()
+        modified_text = modified_text.replace(f"{{{food_item}:{calories}}}", "").strip()
+        modified_visible_text = f"{stats_context}\n{visible_text}"
+        modified_visible_text = modified_visible_text.replace("==END_DAY==", "").strip()
+        modified_visible_text = modified_visible_text.replace(f"{{{food_item}:{calories}}}", "").strip()
+    else:
+        modified_text = "TOM: " + text
+        modified_visible_text = "TOM: " + visible_text
+
+    return modified_text, modified_visible_text
+
+
+def output_modifier(string, state, is_chat=False):
+    mood_pattern = re.compile(r"<(" + "|".join(CharacterStats.MOODS) + ")>")
+    match = mood_pattern.search(string)
+    if match:
+        new_mood = match.group(1)
+        character_stats.change_mood(new_mood)
+        string = mood_pattern.sub("", string).strip()
+        string += f" Maddy is now feeling {new_mood}."
+
+    if "==END_DAY==" in string:
+        string += "\n*It's the start of a new day!*"
+        string = re.sub(r"==END_DAY==", "", string).strip()
+
+        # Append a message immediately after processing a food item command
+    food_matches = re.findall(r"\{([^}]+):(\d+)\}", string)
+    for match in food_matches:
+        string += f"\n*Tom just fed you {match[0]}*"
+        string = re.sub(re.escape(match[0]), "", string).strip()
+
+    return string
+
+# UI for reflecting character stats and updates
 def ui():
     stats_display = gr.Markdown()
     end_day_button = gr.Button("End Day")
@@ -101,11 +172,10 @@ def ui():
     add_food_button = gr.Button("Add Food")
 
     def update_stats_display():
-        bmi = character_stats.calculate_bmi()
         return f"""
         **Age**: {character_stats.age}
         **Weight**: {character_stats.weight} lbs
-        **BMI**: {bmi}
+        **BMI**: {character_stats.calculate_bmi()}
         **Shirt Size**: {character_stats.shirt_size}
         **Pant Size**: {character_stats.pant_size}
         **Current Calories**: {character_stats.current_calories}
@@ -134,5 +204,3 @@ params = {
     "display_name": "Dating Sim Character Tracker",
     "is_tab": True,
 }
-
-# Bind these functions to the appropriate handlers in your chat framework.
