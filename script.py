@@ -72,6 +72,9 @@ class CharacterStats:
         self.update_clothing_sizes()
         self.max_calories = self.calculate_bmr()
 
+    def formatted_date(self):
+        return self.current_date.strftime("%B %d, %Y")  # Format: "Month day, Year"
+
     def update_clothing_sizes(self):
         self.weight_diff = self.weight - 170  # Initial weight
 
@@ -138,9 +141,9 @@ def chat_input_modifier(text, visible_text, state):
 
     # Create stats context
     stats_context = (
-        f"[Today's date is {character_stats.current_date}. Maddy is now {character_stats.age} years old, "
+        f"[Today's date is {character_stats.formatted_date()}. Maddy is now {character_stats.age} years old, "
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
-        f"and she has gained {character_stats.weight_diff} lbs since June 16th 2009. She currently wears a {character_stats.shirt_size} "
+        f"and she has gained {character_stats.weight_diff} lbs since June 15th 2009. She currently wears a {character_stats.shirt_size} "
         f"shirt ({character_stats.shirt_fit}), and has a pant size {character_stats.pant_size} US women's ({character_stats.pant_fit}). "
         f"So far she has consumed {character_stats.current_calories} calories today.]"
     )
