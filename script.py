@@ -67,7 +67,7 @@ class CharacterStats:
             self.age += 1  # Increment age
         excess_calories = self.current_calories - self.calculate_bmr()
         if excess_calories > 500:
-            self.weight += excess_calories % 500  # Add 1 lb for every excess of 500 calories
+            self.weight += int(excess_calories / 500)  # Add 1 lb for every excess of 500 calories
         self.current_calories = 0
         self.update_clothing_sizes()
         self.max_calories = self.calculate_bmr()
@@ -199,41 +199,3 @@ def output_modifier(string, state, is_chat=False):
 
     return string
 
-# UI for reflecting character stats and updates
-def ui():
-    stats_display = gr.Markdown()
-    end_day_button = gr.Button("End Day")
-    food_input = gr.Textbox(placeholder="Add food item in format {food:calories}")
-    add_food_button = gr.Button("Add Food")
-
-    def update_stats_display():
-        return f"""
-        **Age**: {character_stats.age}
-        **Weight**: {character_stats.weight} lbs
-        **BMI**: {character_stats.calculate_bmi()}
-        **Shirt Size**: {character_stats.shirt_size}
-        **Pant Size**: {character_stats.pant_size}
-        **Current Calories**: {character_stats.current_calories}
-        **Max Calories**: {character_stats.max_calories}
-        """
-
-    def end_day():
-        character_stats.end_day()
-        return update_stats_display()
-
-    def add_food(food):
-        match = re.match(r"\{([^}]+):(\d+)\}", food)
-        if match:
-            _, calories = match.groups()
-            character_stats.add_calories(int(calories))
-        return update_stats_display()
-
-    end_day_button.click(fn=end_day, inputs=[], outputs=[stats_display])
-    add_food_button.click(fn=add_food, inputs=[food_input], outputs=[stats_display])
-
-    return gr.Column(stats_display, end_day_button, food_input, add_food_button)
-
-params = {
-    "display_name": "Dating Sim Character Tracker",
-    "is_tab": True,
-}
