@@ -23,7 +23,7 @@ class CharacterStats:
         self.weight = 170  # lbs
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
-        self.max_calories = 3500  # Arbitrary value for calories needed to gain weight
+        self.max_calories = 1620
         self.current_date = datetime.datetime(2009, 6, 15)  # June 15th, 2009
         self.update_clothing_sizes()
 
@@ -97,6 +97,30 @@ class CharacterStats:
         else:
             self.pant_fit = "Tight Fit"
 
+    def reset_stats(self):
+        self.age = 19
+        self.weight = 170  # lbs
+        self.height_inches = 67  # 5'7"
+        self.current_calories = 0
+        self.max_calories = 1620  # Reset to initial value
+        self.current_date = datetime.datetime(2009, 6, 15)  # Reset to initial date
+        self.update_clothing_sizes()
+
+    def set_weight(self, new_weight):
+        self.weight = new_weight
+        self.update_clothing_sizes()
+        self.max_calories = self.calculate_bmr()
+
+    def set_age(self, new_age):
+        self.age = new_age
+        self.max_calories = self.calculate_bmr()
+
+    def set_calories(self, new_calories):
+        self.current_calories = new_calories
+
+    def set_date(self, new_date):
+        self.current_date = datetime.datetime.strptime(new_date, '%Y-%m-%d')
+
 character_stats = CharacterStats()
 
 def input_modifier(string, state, is_chat=False):
@@ -105,11 +129,38 @@ def input_modifier(string, state, is_chat=False):
             character_stats.end_day()
             string = re.sub(r"==END_DAY==", "", string).strip()
 
+        if "==RESET==" in string:
+            character_stats.reset_stats()
+            string = re.sub(r"==RESET==", "", string).strip()
+
+        # Pattern matching for stat overrides
+        weight_match = re.search(r'weight==(\d+)', string)
+        if weight_match:
+            character_stats.set_weight(int(weight_match.group(1)))
+            string = re.sub(r'weight==\d+', '', string)
+
+        age_match = re.search(r'age==(\d+)', string)
+        if age_match:
+            character_stats.set_age(int(age_match.group(1)))
+            string = re.sub(r'age==\d+', '', string)
+
+        calories_match = re.search(r'calories==(\d+)', string)
+        if calories_match:
+            character_stats.set_calories(int(calories_match.group(1)))
+            string = re.sub(r'calories==\d+', '', string)
+
+        date_match = re.search(r'date==(\d{4}-\d{2}-\d{2})', string)
+        if date_match:
+            character_stats.set_date(date_match.group(1))
+            string = re.sub(r'date==\d{4}-\d{2}-\d{2}', '', string)
+
         food_matches = re.findall(r"\{([^}]+):(\d+)\}", string)
         for match in food_matches:
             _, cal = match
             character_stats.add_calories(int(cal))
             string = re.sub(re.escape(match), "", string).strip()
+
+
 
     return string
 
@@ -118,6 +169,11 @@ def chat_input_modifier(text, visible_text, state):
     end_day_called = "==END_DAY==" in text
     food_matches = re.findall(r"\{([^}]+):(\d+)\}", text)
     is_story = "STORY:" in text
+    reset_stats = "==RESET==" in text
+    weight_match = re.search(r'weight==(\d+)', text)
+    age_match = re.search(r'age==(\d+)', text)
+    calories_match = re.search(r'calories==(\d+)', text)
+    date_match = re.search(r'date==(\d{4}-\d{2}-\d{2})', text)
 
     # Process end day command
     end_day_message = []
@@ -128,16 +184,41 @@ def chat_input_modifier(text, visible_text, state):
                 f"\n*It's the start of a new day... And it's Maddy's birthday! You are now {character_stats.age}!*\n")
         else:
             end_day_message.append("\n*It's the start of a new day!*\n")
-        text = text.replace("==END_DAY==", "").strip()
+        visible_text = text.replace("==END_DAY==", "").strip()
+
+    if reset_stats:
+        character_stats.reset_stats()
+        visible_text = visible_text.replace("==RESET==", "").strip()
 
     food_messages = []
 
     for food_item, calories in food_matches:
         character_stats.add_calories(int(calories))
         fullness_status = character_stats.calculate_fullness()
-        food_messages.append(f"\n*Tom just fed Maddy {food_item}*\n*After eating this, Maddy is feeling {fullness_status}.*")
-        text = text.replace(f"{{{food_item}:{calories}}}", "").strip()
+        food_messages.append(f"\n*Maddy just ate {food_item}*\n*After eating this, Maddy is feeling {fullness_status}.*")
         visible_text = visible_text.replace(f"{{{food_item}:{calories}}}", "").strip()
+
+    if weight_match:
+        character_stats.set_weight(int(weight_match.group(1)))
+        match_str = weight_match.group(0)
+        text = text.replace(match_str, "").strip()
+
+    if age_match:
+        character_stats.set_age(int(age_match.group(1)))
+        match_str = age_match.group(0)
+        text = text.replace(match_str, "").strip()
+
+    if calories_match:
+        character_stats.set_calories(int(calories_match.group(1)))
+        # Extract the matched pattern as a string
+        match_str = calories_match.group(0)
+        # Replace the matched string with an empty string
+        text = text.replace(match_str, "").strip()
+
+    if date_match:
+        character_stats.set_date(date_match.group(1))
+        match_str = date_match.group(0)
+        text = text.replace(match_str, "").strip()
 
     # Create stats context
     stats_context = (
@@ -145,7 +226,7 @@ def chat_input_modifier(text, visible_text, state):
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
         f"and she has gained {character_stats.weight_diff} lbs since June 15th 2009. She currently wears a {character_stats.shirt_size} "
         f"shirt ({character_stats.shirt_fit}), and has a pant size {character_stats.pant_size} US women's ({character_stats.pant_fit}). "
-        f"So far she has consumed {character_stats.current_calories} calories today.]"
+        f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today.]"
     )
 
     # Append food and end day messages to the stats context
@@ -155,34 +236,48 @@ def chat_input_modifier(text, visible_text, state):
     if food_messages:
         stats_context += "\n".join(food_messages)
 
-    # Initialize reminder messages list and check for keywords
-    reminder_messages = []
-    if "weight" in text or "weigh" in text:
-        reminder_messages.append(f"[Reminder: You currently weigh {character_stats.weight} lbs]")
-    if "pant size" in text:
-        reminder_messages.append(f"[Reminder: Your pant size is {character_stats.pant_size} US women's]")
-    if "shirt size" in text:
-        reminder_messages.append(f"[Reminder: You currently wear a {character_stats.shirt_size} shirt]")
-
-    # Append reminders to the stats context
-    if reminder_messages:
-        stats_context += "\n" + "\n".join(reminder_messages)
-
     # Check for story and modify text accordingly
     if is_story and is_new_chat:
         modified_text = f"{stats_context}\n{text}"
         modified_visible_text = f"{stats_context}\n{visible_text}"
-    elif is_story:
-        modified_text = text.replace("STORY: ", "").strip()
-        modified_visible_text = visible_text.replace("STORY: ", "").strip()
-    elif is_new_chat or end_day_called or food_matches:
+    elif is_new_chat or end_day_called or food_matches or reset_stats:
+        modified_text = f"{stats_context}\n{text}"
+        modified_visible_text = f"{stats_context}\n{visible_text}"
+    elif weight_match or age_match or calories_match or date_match:
         modified_text = f"{stats_context}\n{text}"
         modified_visible_text = f"{stats_context}\n{visible_text}"
     else:
         modified_text = "TOM: " + text
         modified_visible_text = "TOM: " + visible_text
 
-    return modified_text, modified_visible_text
+    if weight_match:
+        match_str = weight_match.group(0)
+        visible_text = visible_text.replace(match_str, "").strip()
+
+    if age_match:
+        match_str = age_match.group(0)
+        visible_text = visible_text.replace(match_str, "").strip()
+
+    if calories_match:
+        # Extract the matched pattern as a string
+        match_str = calories_match.group(0)
+        # Replace the matched string with an empty string
+        visible_text = visible_text.replace(match_str, "").strip()
+
+    if date_match:
+        match_str = date_match.group(0)
+        visible_text = visible_text.replace(match_str, "").strip()
+        
+    if reset_stats:
+        text = text.replace("==RESET==", "").strip()
+
+    if end_day_called:
+        text = text.replace("==END_DAY==", "").strip()
+
+    text = modified_text
+    visible_text = modified_visible_text
+
+    return text, visible_text
 
 
 def output_modifier(string, state, is_chat=False):
@@ -191,11 +286,13 @@ def output_modifier(string, state, is_chat=False):
         string += "\n*It's the start of a new day!*"
         string = re.sub(r"==END_DAY==", "", string).strip()
 
-        # Append a message immediately after processing a food item command
+    # Regex to find patterns like {food:calories}
     food_matches = re.findall(r"\{([^}]+):(\d+)\}", string)
-    for match in food_matches:
-        string += f"\n*Tom just fed you {match[0]}*"
-        string = re.sub(re.escape(match[0]), "", string).strip()
+
+    # For each match, update character stats
+    for food, cal in food_matches:
+        character_stats.add_calories(int(cal))
+        # Optionally, add a confirmation message to the response
+        string += f"\n(Added {cal} calories from {food} to the stats)"
 
     return string
-
