@@ -196,7 +196,6 @@ def chat_input_modifier(text, visible_text, state):
         character_stats.add_calories(int(calories))
         fullness_status = character_stats.calculate_fullness()
         food_messages.append(f"\n*Maddy just ate {food_item}*\n*After eating this, Maddy is feeling {fullness_status}.*")
-        visible_text = visible_text.replace(f"{{{food_item}:{calories}}}", "").strip()
 
     if weight_match:
         character_stats.set_weight(int(weight_match.group(1)))
