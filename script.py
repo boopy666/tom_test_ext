@@ -158,9 +158,8 @@ def input_modifier(string, state, is_chat=False):
         for match in food_matches:
             _, cal = match
             character_stats.add_calories(int(cal))
-            string = re.sub(re.escape(match), "", string).strip()
-
-
+            match_str = "{" + match[0] + ":" + str(cal) + "}"
+            string = re.sub(re.escape(match_str), "", string).strip()
 
     return string
 
@@ -246,8 +245,8 @@ def chat_input_modifier(text, visible_text, state):
         modified_text = f"{stats_context}\n{text}"
         modified_visible_text = f"{stats_context}\n{visible_text}"
     else:
-        modified_text = "TOM: " + text
-        modified_visible_text = "TOM: " + visible_text
+        modified_text = text
+        modified_visible_text = visible_text
 
     if weight_match:
         match_str = weight_match.group(0)
@@ -272,6 +271,11 @@ def chat_input_modifier(text, visible_text, state):
 
     if end_day_called:
         text = text.replace("==END_DAY==", "").strip()
+
+    if food_matches:
+        for food_item, calories in food_matches:
+            match_str = "{" + food_item + ":" + str(calories) + "}"
+            text = re.sub(re.escape(match_str), "", text).strip()
 
     text = modified_text
     visible_text = modified_visible_text
