@@ -224,7 +224,6 @@ def chat_input_modifier(text, visible_text, state):
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
         f"and she has gained {character_stats.weight_diff} lbs since June 15th 2016. "
         f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today, "
-        f"which leaves her feeling {fullness_status}]"
     )
 
     # Append food and end day messages to the stats context
