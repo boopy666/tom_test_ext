@@ -24,7 +24,7 @@ class CharacterStats:
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
         self.max_calories = 1620
-        self.current_date = datetime.datetime(2009, 6, 15)  # June 15th, 2009
+        self.current_date = datetime.datetime(2016, 6, 15)  # June 15th, 2016
         self.update_clothing_sizes()
 
     def add_calories(self, calories):
@@ -81,9 +81,9 @@ class CharacterStats:
         # Update shirt size and fit
         shirt_index = max(0, min(len(self.SHIRT_SIZES) - 1, self.weight_diff // 30))
         self.shirt_size = self.SHIRT_SIZES[shirt_index]
-        if self.weight_diff % 30 <= 10:
+        if self.weight_diff % 20 <= 10:
             self.shirt_fit = "Loose Fit"
-        elif self.weight_diff % 30 <= 20:
+        elif self.weight_diff % 20 <= 15:
             self.shirt_fit = "Standard Fit"
         else:
             self.shirt_fit = "Tight Fit"
@@ -103,7 +103,7 @@ class CharacterStats:
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
         self.max_calories = 1620  # Reset to initial value
-        self.current_date = datetime.datetime(2009, 6, 15)  # Reset to initial date
+        self.current_date = datetime.datetime(2016, 6, 15)  # Reset to initial date
         self.update_clothing_sizes()
 
     def set_weight(self, new_weight):
@@ -178,9 +178,9 @@ def chat_input_modifier(text, visible_text, state):
     end_day_message = []
     if end_day_called:
         character_stats.end_day()
-        if character_stats.current_date.month == 8 and character_stats.current_date.day == 16:
+        if character_stats.current_date.month == 4 and character_stats.current_date.day == 16:
             end_day_message.append(
-                f"\n*It's the start of a new day... And it's Maddy's birthday! You are now {character_stats.age}!*\n")
+                f"\n*It's the start of a new day... And it's Jessica's birthday! You are now {character_stats.age}!*\n")
         else:
             end_day_message.append("\n*It's the start of a new day!*\n")
         visible_text = text.replace("==END_DAY==", "").strip()
@@ -194,7 +194,7 @@ def chat_input_modifier(text, visible_text, state):
     for food_item, calories in food_matches:
         character_stats.add_calories(int(calories))
         fullness_status = character_stats.calculate_fullness()
-        food_messages.append(f"\n*Maddy just ate {food_item}*\n*After eating this, Maddy is feeling {fullness_status}.*")
+        food_messages.append(f"\n*Jessica just ate {food_item}*\n*After eating this, Jessica is feeling {fullness_status}.*")
 
     if weight_match:
         character_stats.set_weight(int(weight_match.group(1)))
@@ -220,11 +220,11 @@ def chat_input_modifier(text, visible_text, state):
 
     # Create stats context
     stats_context = (
-        f"[Today's date is {character_stats.formatted_date()}. Maddy is now {character_stats.age} years old, "
+        f"[Today's date is {character_stats.formatted_date()}. Jessica is now {character_stats.age} years old, "
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
-        f"and she has gained {character_stats.weight_diff} lbs since June 15th 2009. She currently wears a {character_stats.shirt_size} "
-        f"shirt ({character_stats.shirt_fit}), and has a pant size {character_stats.pant_size} US women's ({character_stats.pant_fit}). "
-        f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today.]"
+        f"and she has gained {character_stats.weight_diff} lbs since June 15th 2016. "
+        f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today, "
+        f"which leaves her feeling {fullness_status}]"
     )
 
     # Append food and end day messages to the stats context
