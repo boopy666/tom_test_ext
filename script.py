@@ -15,17 +15,27 @@ if modules_path not in sys.path:
 
 from chat import generate_chat_prompt
 
+# extension parameters
+params = {
+    "display_name": "Character Stats",
+    "is_tab": False
+}
+
+
+
 class CharacterStats:
     SHIRT_SIZES = ["Medium", "Large", "X-Large", "XX-Large", "XXX-Large", "XXXX-Large", "XXXXX-Large"]
 
     def __init__(self):
+        self.name = "Maddy"
         self.age = 19
-        self.weight = 373  # lbs
+        self.weight = 170  # lbs
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
-        self.max_calories = 2200
-        self.current_date = datetime.datetime(2023, 9, 10)  # June 15th, 2016
+        self.max_calories = 1620
+        self.current_date = datetime.datetime(2016, 6, 15)  # June 15th, 2016
         self.update_clothing_sizes()
+        self.birthday = datetime.datetime(1997, 2, 23)
 
     def add_calories(self, calories):
         self.current_calories += calories
@@ -60,11 +70,13 @@ class CharacterStats:
         else:
             return "Overfed"
 
+    def calculate_age(self):
+        self.age = (self.current_date.year - self.birthday.year)
+
     def end_day(self):
         self.current_date += datetime.timedelta(days=1)
-        # Check if it's her birthday (August 16th)
-        if self.current_date.month == 8 and self.current_date.day == 16:
-            self.age += 1  # Increment age
+        if self.current_date.month == self.birthday.month and self.current_date.day == self.birthday.day:
+            self.calculate_age()
         excess_calories = self.current_calories - self.calculate_bmr()
         if excess_calories > 500:
             self.weight += int(excess_calories / 500)  # Add 1 lb for every excess of 500 calories
@@ -99,11 +111,11 @@ class CharacterStats:
 
     def reset_stats(self):
         self.age = 19
-        self.weight = 373  # lbs
+        self.weight = 170  # lbs
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
-        self.max_calories = 2200  # Reset to initial value
-        self.current_date = datetime.datetime(2023, 9, 10)  # Reset to initial date
+        self.max_calories = 1620  # Reset to initial value
+        self.current_date = datetime.datetime(2016, 6, 15)  # Reset to initial date
         self.update_clothing_sizes()
 
     def set_weight(self, new_weight):
@@ -120,6 +132,19 @@ class CharacterStats:
 
     def set_date(self, new_date):
         self.current_date = datetime.datetime.strptime(new_date, '%Y-%m-%d')
+
+    def override_stats(self, name, birthday_day, birthday_month, birthday_year, weight, height_inches, current_calories, current_year, current_month, current_day):
+        self.name = name
+        self.weight = weight
+        self.height_inches = height_inches
+        self.current_calories = current_calories
+        self.current_date = datetime.datetime(current_year, current_month, current_day)
+        self.birthday = datetime.datetime(birthday_year, birthday_month, birthday_day)
+        self.age = (self.current_date.year - self.birthday.year)
+        self.update_clothing_sizes()
+        self.max_calories = self.calculate_bmr()
+        self.calculate_bmi()
+
 
 character_stats = CharacterStats()
 
@@ -180,7 +205,7 @@ def chat_input_modifier(text, visible_text, state):
         character_stats.end_day()
         if character_stats.current_date.month == 4 and character_stats.current_date.day == 16:
             end_day_message.append(
-                f"\n*It's the start of a new day... And it's Maddy's birthday! You are now {character_stats.age}!*\n")
+                f"\n*It's the start of a new day... And it's {character_stats.name}'s birthday! You are now {character_stats.age}!*\n")
         else:
             end_day_message.append("\n*It's the start of a new day!*\n")
         visible_text = text.replace("==END_DAY==", "").strip()
@@ -194,7 +219,7 @@ def chat_input_modifier(text, visible_text, state):
     for food_item, calories in food_matches:
         character_stats.add_calories(int(calories))
         fullness_status = character_stats.calculate_fullness()
-        food_messages.append(f"\n*Maddy just ate {food_item}*\n*After eating this, Maddy is feeling {fullness_status}.*")
+        food_messages.append(f"\n*{character_stats.name} just ate {food_item}*\n*After eating this, {character_stats.name} is feeling {fullness_status}.*")
 
     if weight_match:
         character_stats.set_weight(int(weight_match.group(1)))
@@ -220,9 +245,9 @@ def chat_input_modifier(text, visible_text, state):
 
     # Create stats context
     stats_context = (
-        f"[Today's date is {character_stats.formatted_date()}. Maddy is now {character_stats.age} years old, "
+        f"[Today's date is {character_stats.formatted_date()}. Jessica is now {character_stats.age} years old, "
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
-        f"and she has gained {character_stats.weight_diff} lbs since September 10th 2023. "
+        f"and she has gained {character_stats.weight_diff} lbs since June 15th 2016. "
         f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today] "
     )
 
@@ -298,3 +323,7 @@ def output_modifier(string, state, is_chat=False):
         string += f"\n(Added {cal} calories from {food} to the stats)"
 
     return string
+
+def ui():
+    with gr.Accordion(label="Character Stats", open=True):
+        update_char_age = gr.Textbox(label="Update Character Age")
