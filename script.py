@@ -21,21 +21,38 @@ params = {
     "is_tab": False
 }
 
+# Initialize the extension state
+character_stats = {
+    "inject": False,
+    "char_name": "Maddy",
+    "char_weight": 170,
+    "char_calories": 0,
+    "char_height": 67,
+    "char_birth_year": 1997,
+    "char_birth_month": 2,
+    "char_birth_day": 23,
+    "current_year": 2016,
+    "current_month": 6,
+    "current_day": 15
+}
 
 
 class CharacterStats:
     SHIRT_SIZES = ["Medium", "Large", "X-Large", "XX-Large", "XXX-Large", "XXXX-Large", "XXXXX-Large"]
 
     def __init__(self):
-        self.name = "Maddy"
-        self.age = 19
+        self.name = "Maddy"        
         self.weight = 170  # lbs
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
-        self.max_calories = 1620
-        self.current_date = datetime.datetime(2016, 6, 15)  # June 15th, 2016
+        self.max_calories = self.calculate_bmr()
+        self.current_date = datetime.datetime(2016, 6, 15)
+        self.start_date = datetime.datetime(2016, 6, 15)
+        self.age = self.calculate_age()
         self.update_clothing_sizes()
         self.birthday = datetime.datetime(1997, 2, 23)
+        self.update_clothing_sizes()
+        self.fullness = calculate_fullness()
 
     def add_calories(self, calories):
         self.current_calories += calories
@@ -43,7 +60,7 @@ class CharacterStats:
     def calculate_bmi(self):
         bmi_value = (self.weight / (self.height_inches ** 2)) * 703
         categories = ["Healthy", "Overweight", "Chubby", "Obese", "Super Obese", "Hyper Obese"]
-        thresholds = [18.5, 25, 30, 35, 40, 45]
+        thresholds = [18.5, 25, 30, 35, 40, 50]
         for i, threshold in enumerate(thresholds):
             if bmi_value < threshold:
                 return f"{bmi_value:.1f} ({categories[i]})"
@@ -70,16 +87,14 @@ class CharacterStats:
         else:
             return "Overfed"
 
-    def calculate_age(self):
-        self.age = (self.current_date.year - self.birthday.year)
 
     def end_day(self):
         self.current_date += datetime.timedelta(days=1)
-        if self.current_date.month == self.birthday.month and self.current_date.day == self.birthday.day:
-            self.calculate_age()
         excess_calories = self.current_calories - self.calculate_bmr()
         if excess_calories > 500:
             self.weight += int(excess_calories / 500)  # Add 1 lb for every excess of 500 calories
+        if self.current_date.month == self.birthday.month and self.current_date.day == self.birthday.day:
+            self.set_age()
         self.current_calories = 0
         self.update_clothing_sizes()
         self.max_calories = self.calculate_bmr()
@@ -110,13 +125,17 @@ class CharacterStats:
             self.pant_fit = "Tight Fit"
 
     def reset_stats(self):
-        self.age = 19
+        self.birthday = datetime.datetime(1997, 2, 23)
         self.weight = 170  # lbs
         self.height_inches = 67  # 5'7"
         self.current_calories = 0
-        self.max_calories = 1620  # Reset to initial value
+        self.max_calories = self.calculate_bmr()  # Reset to initial value
         self.current_date = datetime.datetime(2016, 6, 15)  # Reset to initial date
+        self.start_date = datetime.datetime(2016, 6, 15)
         self.update_clothing_sizes()
+        self.age = self.set_age()
+        self.calculate_bmi()
+        self.fullness = calculate_fullness()
 
     def set_weight(self, new_weight):
         self.weight = new_weight
@@ -124,7 +143,7 @@ class CharacterStats:
         self.max_calories = self.calculate_bmr()
 
     def set_age(self, new_age):
-        self.age = new_age
+        self.age = (self.current_date.year - self.birthday.year)
         self.max_calories = self.calculate_bmr()
 
     def set_calories(self, new_calories):
@@ -133,17 +152,19 @@ class CharacterStats:
     def set_date(self, new_date):
         self.current_date = datetime.datetime.strptime(new_date, '%Y-%m-%d')
 
-    def override_stats(self, name, birthday_day, birthday_month, birthday_year, weight, height_inches, current_calories, current_year, current_month, current_day):
+    def override_stats(self, name, birthday_day, birthday_month, birthday_year, start_day, start_month, start_year, weight, height_inches, current_calories, current_year, current_month, current_day):
         self.name = name
         self.weight = weight
         self.height_inches = height_inches
         self.current_calories = current_calories
         self.current_date = datetime.datetime(current_year, current_month, current_day)
+        self.start_date = datetime.datetime(start_year, start_month, start_day)
         self.birthday = datetime.datetime(birthday_year, birthday_month, birthday_day)
-        self.age = (self.current_date.year - self.birthday.year)
+        self.age = self.set_age()
         self.update_clothing_sizes()
         self.max_calories = self.calculate_bmr()
         self.calculate_bmi()
+        self.fullness = calculate_fullness()
 
 
 character_stats = CharacterStats()
@@ -245,7 +266,7 @@ def chat_input_modifier(text, visible_text, state):
 
     # Create stats context
     stats_context = (
-        f"[Today's date is {character_stats.formatted_date()}. Jessica is now {character_stats.age} years old, "
+        f"[Today's date is {character_stats.formatted_date()}. {character_stats.name()} is now {character_stats.age} years old, "
         f"5'7 inches tall, and currently weighs {character_stats.weight} lbs, so with that her BMI is {character_stats.calculate_bmi()} "
         f"and she has gained {character_stats.weight_diff} lbs since June 15th 2016. "
         f"So far she has consumed {character_stats.current_calories} out of {character_stats.max_calories} calories today] "
@@ -326,4 +347,56 @@ def output_modifier(string, state, is_chat=False):
 
 def ui():
     with gr.Accordion(label="Character Stats", open=True):
-        update_char_age = gr.Textbox(label="Update Character Age")
+        inject_stats = gr.Checkbox(
+            label="Inject Stats",
+            value=character_stats['inject']
+        )
+        char_name = gr.Textbox(
+            label="Character Name",
+            value=character_stats['char_name'],
+            placeholder="Enter your character's name here..."
+        )
+        char_weight = gr.Number(
+            label="Character Weight",
+            value=character_stats['char_weight'],
+            placeholder="Enter your character's weight here..."
+        )
+        char_calories = gr.Number(
+            label="Calories Consumed",
+            value=character_stats['char_calories'],
+            plcaeholder="Enter calories consumed today here..."
+        )
+        char_height = gr.Number(
+            label="Character Height",
+            value=character_stats['char_height'],
+            placeholder="Enter player height (in inches) here..."
+        )
+        with gr.Row():
+            current_day = gr.Number(
+                label="Current Day",
+                value=character_stats['current_day']
+            current_month = gr.Number(
+                label="Current Month",
+                value=character_stats['current_month']
+            current_year = gr.Number(
+                label="Current Year",
+                value=character_stats['current_year']
+        with gr.Row():
+            
+                
+                
+
+# Initialize the extension state
+character_stats = {
+    "inject": False,
+    "char_name": "Maddy",
+    "char_weight": 170,
+    "char_calories": 0,
+    "char_height": 67,
+    "char_birth_year": 1997,
+    "char_birth_month": 2,
+    "char_birth_day": 23,
+    "current_year": 2016,
+    "current_month": 6,
+    "current_day": 15
+}
